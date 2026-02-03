@@ -146,17 +146,32 @@ class GameWebSocketServer {
       return;
     }
 
+    // 检查该玩家是否已在房间中（防止重复加入）
+    if (room.players.has(conn.playerId)) {
+      conn.roomId = payload.roomId;
+      this.sendRoomState(ws, payload.roomId);
+      return;
+    }
+
+    // 第一个加入的玩家成为 host
+    const isHost = room.players.size === 0;
+
     const player: Player = {
       id: conn.playerId,
       name: conn.playerName,
       avatar: getAvatarUrl(conn.playerName),
-      isHost: false,
+      isHost,
       isReady: false,
       teamId: null,
     };
 
     gameStore.addPlayer(payload.roomId, player);
     conn.roomId = payload.roomId;
+
+    // 如果是第一个玩家，设置为 host
+    if (isHost) {
+      room.hostId = conn.playerId;
+    }
 
     // 通知房间内其他玩家
     this.broadcastToRoom(payload.roomId, {

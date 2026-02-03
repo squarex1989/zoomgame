@@ -5,25 +5,16 @@ class GameStore {
   private rooms: Map<string, Room> = new Map();
 
   // 房间操作
-  createRoom(hostId: string, hostName: string, hostAvatar: string): Room {
+  createRoom(): Room {
     const roomId = this.generateRoomId();
     
-    const host: Player = {
-      id: hostId,
-      name: hostName,
-      avatar: hostAvatar,
-      isHost: true,
-      isReady: false,
-      teamId: null,
-    };
-
     // 默认配置
     const defaultConfig: GameConfig = { playerCount: 4, playersPerTeam: 2, totalRounds: 3 };
 
     const room: Room = {
       id: roomId,
-      hostId,
-      players: new Map([[hostId, host]]),
+      hostId: '', // 第一个加入的玩家会成为 host
+      players: new Map(),
       teams: this.createTeams(4, 2), // 默认 4 人游戏，2 人一组
       gameType: 'gomoku',
       gameState: this.createInitialGameState(defaultConfig),

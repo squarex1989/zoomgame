@@ -3,8 +3,6 @@ import { parse } from 'url';
 import next from 'next';
 import { wsServer } from './lib/websocket/server';
 import { gameStore } from './lib/store';
-import { v4 as uuidv4 } from 'uuid';
-import { RANDOM_NAMES, getAvatarUrl } from './lib/game/types';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
@@ -28,17 +26,12 @@ function handleApiRequest(req: IncomingMessage, res: ServerResponse, pathname: s
 
   // 创建房间
   if (pathname === '/api/room' && req.method === 'POST') {
-    const hostId = uuidv4();
-    const hostName = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
-    const hostAvatar = getAvatarUrl(hostName);
-
-    const room = gameStore.createRoom(hostId, hostName, hostAvatar);
+    const room = gameStore.createRoom();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       success: true,
       roomId: room.id,
-      hostId: room.hostId,
       joinUrl: `/room/${room.id}`,
     }));
     return true;
