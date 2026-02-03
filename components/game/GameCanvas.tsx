@@ -55,10 +55,15 @@ export function GameCanvas({
   const filledSlots = teams.reduce((sum, t) => sum + t.players.length, 0);
   const hasEmptySlots = filledSlots < totalSlots;
 
-  // 检查当前玩家是否可以加入某个队伍
+  // 检查当前玩家是否可以加入某个队伍（包括换组）
   const canJoinTeam = (team: Team) => {
-    if (isInTeam) return false;
+    // 游戏进行中不能换组
     if (gameState?.phase === 'playing') return false;
+    // 已准备状态不能换组
+    if (currentPlayer?.isReady) return false;
+    // 已经在这个队伍了
+    if (myTeamId === team.id) return false;
+    // 目标队伍有空位
     return team.players.length < config.playersPerTeam;
   };
 
