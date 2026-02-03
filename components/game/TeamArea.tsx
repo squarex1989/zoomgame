@@ -26,29 +26,28 @@ export function TeamArea({
 
   return (
     <div
-      className="relative p-4 rounded-2xl bg-[#1A1A1A]/80 border-2 transition-all duration-300"
+      className="relative p-3 rounded-xl bg-[#1A1A1A]/80 border-2 transition-all duration-300 min-w-[140px]"
       style={{
         borderColor: TEAM_COLOR_HEX[team.color],
-        boxShadow: `0 0 30px ${TEAM_COLOR_HEX[team.color]}20`,
+        boxShadow: `0 0 20px ${TEAM_COLOR_HEX[team.color]}15`,
       }}
     >
       {/* 队伍标题 */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
           <div
-            className="w-4 h-4 rounded-full"
+            className="w-3 h-3 rounded-full"
             style={{ backgroundColor: TEAM_COLOR_HEX[team.color] }}
           />
-          <span className="text-white font-semibold capitalize">{team.color} Team</span>
+          <span className="text-white text-sm font-semibold capitalize">{team.color}</span>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-gray-400">胜利: </span>
-          <span className="text-white font-bold">{team.wins}</span>
+        <div className="text-xs text-gray-400">
+          <span className="text-white font-bold">{team.wins}</span> 胜
         </div>
       </div>
 
       {/* 玩家格子 */}
-      <div className="flex flex-wrap gap-3 justify-center">
+      <div className="flex gap-2 justify-center">
         {players.map(player => (
           <VideoTile
             key={player.id}
@@ -67,7 +66,7 @@ export function TeamArea({
             onClick={canJoin ? onJoinTeam : undefined}
             disabled={!canJoin}
             className={`
-              w-16 h-16 rounded-full border-2 border-dashed
+              w-12 h-12 rounded-full border-2 border-dashed
               flex items-center justify-center
               transition-all duration-200
               ${canJoin
@@ -80,7 +79,7 @@ export function TeamArea({
             }}
           >
             <svg
-              className={`w-6 h-6 ${canJoin ? 'text-gray-400' : 'text-gray-700'}`}
+              className={`w-5 h-5 ${canJoin ? 'text-gray-400' : 'text-gray-700'}`}
               viewBox="0 0 24 24"
               fill="currentColor"
             >
@@ -90,15 +89,13 @@ export function TeamArea({
         ))}
       </div>
 
-      {/* 棋子数量显示 */}
-      <div className="mt-3 text-center text-sm text-gray-400">
-        棋子数: <span className="text-white font-medium">{team.stoneCount}</span>
-      </div>
-
       {/* 当前玩家在此队伍的标识 */}
       {isCurrentPlayerInTeam && (
-        <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
-          你的队伍
+        <div 
+          className="absolute -top-1.5 -right-1.5 text-white text-xs px-1.5 py-0.5 rounded-full"
+          style={{ backgroundColor: TEAM_COLOR_HEX[team.color] }}
+        >
+          我
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, use } from 'react';
+import React, { useState, useEffect, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useGameState } from '@/lib/websocket/client';
 import { Header } from '@/components/zoom/Header';
@@ -37,6 +37,13 @@ export default function RoomPage({ params }: RoomPageProps) {
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [viewMode, setViewMode] = useState<'speaker' | 'gallery'>('speaker');
   const [roomExists, setRoomExists] = useState<boolean | null>(null);
+  const [hasJoinedOnce, setHasJoinedOnce] = useState(false);
+  
+  // 保存上一次有效的 room 数据，用于重连时保持 UI
+  const lastRoomRef = useRef<any>(null);
+  if (room) {
+    lastRoomRef.current = room;
+  }
 
   // 检查房间是否存在
   useEffect(() => {
@@ -60,10 +67,11 @@ export default function RoomPage({ params }: RoomPageProps) {
 
   // 连接成功后加入房间
   useEffect(() => {
-    if (isConnected && roomExists && !room) {
+    if (isConnected && roomExists) {
       joinRoom(roomId);
+      setHasJoinedOnce(true);
     }
-  }, [isConnected, roomExists, roomId, room, joinRoom]);
+  }, [isConnected, roomExists, roomId, joinRoom]);
 
   const handleLeave = () => {
     leaveRoom();
@@ -71,8 +79,9 @@ export default function RoomPage({ params }: RoomPageProps) {
   };
 
   const handleSwitchMode = () => {
-    if (room) {
-      switchMode(room.mode === 'meeting' ? 'game' : 'meeting');
+    const currentRoom = room || lastRoomRef.current;
+    if (currentRoom) {
+      switchMode(currentRoom.mode === 'meeting' ? 'game' : 'meeting');
     }
   };
 
@@ -114,8 +123,11 @@ export default function RoomPage({ params }: RoomPageProps) {
     );
   }
 
-  // 等待 WebSocket 连接
-  if (!isConnected || !room) {
+  // 使用当前 room 或缓存的 room（用于重连时保持 UI）
+  const displayRoom = room || lastRoomRef.current;
+
+  // 首次加载时等待 WebSocket 连接
+  if (!hasJoinedOnce && (!isConnected || !displayRoom)) {
     return (
       <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center">
         <div className="text-center">
@@ -126,10 +138,22 @@ export default function RoomPage({ params }: RoomPageProps) {
     );
   }
 
-  const players: Player[] = room.players || [];
+  // 如果完全没有数据（异常情况）
+  if (!displayRoom) {
+    return (
+      <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">正在重新连接...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const players: Player[] = displayRoom.players || [];
   const currentPlayer = players.find((p: Player) => p.id === playerId);
   const isHost = currentPlayer?.isHost || false;
-  const isGameMode = room.mode === 'game';
+  const isGameMode = displayRoom.mode === 'game';
 
   return (
     <div className="min-h-screen bg-[#0D0D0D] flex flex-col">
@@ -138,15 +162,16 @@ export default function RoomPage({ params }: RoomPageProps) {
         roomId={roomId}
         participantCount={players.length}
         isGameMode={isGameMode}
+        isConnected={isConnected}
       />
 
       {/* 主内容区 */}
       {isGameMode ? (
         <GameCanvas
-          gameType={room.gameType}
-          gameState={room.gameState}
+          gameType={displayRoom.gameType}
+          gameState={displayRoom.gameState}
           players={players}
-          teams={room.teams}
+          teams={displayRoom.teams}
           currentPlayerId={playerId}
           isHost={isHost}
           onSelectGame={handleSelectGame}
@@ -163,7 +188,7 @@ export default function RoomPage({ params }: RoomPageProps) {
           <MeetingView
             players={players}
             currentPlayerId={playerId}
-            activePlayerId={room.hostId}
+            activePlayerId={displayRoom.hostId}
           />
         ) : (
           <GalleryView

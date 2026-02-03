@@ -6,9 +6,10 @@ interface HeaderProps {
   roomId: string;
   participantCount: number;
   isGameMode: boolean;
+  isConnected?: boolean;
 }
 
-export function Header({ roomId, participantCount, isGameMode }: HeaderProps) {
+export function Header({ roomId, participantCount, isGameMode, isConnected = true }: HeaderProps) {
   const copyRoomLink = () => {
     const link = `${window.location.origin}/room/${roomId}`;
     navigator.clipboard.writeText(link);
@@ -52,9 +53,9 @@ export function Header({ roomId, participantCount, isGameMode }: HeaderProps) {
             <span>{participantCount}</span>
           </div>
 
-          <div className="flex items-center gap-2 text-green-400 text-sm">
-            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            <span>Connected</span>
+          <div className={`flex items-center gap-2 text-sm ${isConnected ? 'text-green-400' : 'text-yellow-400'}`}>
+            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-yellow-400 animate-pulse'}`} />
+            <span>{isConnected ? 'Connected' : 'Reconnecting...'}</span>
           </div>
         </div>
       </div>

@@ -74,24 +74,10 @@ export function GameCanvas({
 
       {/* 游戏内容区 */}
       {gameType === 'gomoku' ? (
-        <div className="flex-1 flex items-center justify-center gap-8 p-4">
-          {/* 左侧队伍 */}
-          <div className="flex flex-col gap-4">
-            {teams.slice(0, 2).map(team => (
-              <TeamArea
-                key={team.id}
-                team={team}
-                players={players.filter(p => p.teamId === team.id)}
-                maxPlayers={config.playersPerTeam}
-                currentPlayerId={currentPlayerId}
-                canJoin={canJoinTeam(team)}
-                onJoinTeam={() => onJoinTeam(team.id)}
-              />
-            ))}
-          </div>
-
-          {/* 中间棋盘 */}
+        <div className="flex-1 flex items-start justify-center gap-6 p-4 overflow-auto">
+          {/* 左侧：棋盘 + 队伍 */}
           <div className="flex flex-col items-center gap-4">
+            {/* 棋盘 */}
             <GomokuBoard
               board={gameState?.board || Array(15).fill(null).map(() => Array(15).fill(null))}
               currentMoves={gameState?.roundMoves || []}
@@ -101,22 +87,25 @@ export function GameCanvas({
               isMyTurn={isMyTurn}
               onPlaceStone={onPlaceStone}
             />
+            
+            {/* 队伍区域 - 横向排列在棋盘下方 */}
+            <div className="flex flex-wrap justify-center gap-3">
+              {teams.map(team => (
+                <TeamArea
+                  key={team.id}
+                  team={team}
+                  players={players.filter(p => p.teamId === team.id)}
+                  maxPlayers={config.playersPerTeam}
+                  currentPlayerId={currentPlayerId}
+                  canJoin={canJoinTeam(team)}
+                  onJoinTeam={() => onJoinTeam(team.id)}
+                />
+              ))}
+            </div>
           </div>
 
-          {/* 右侧队伍和控制面板 */}
-          <div className="flex flex-col gap-4">
-            {teams.length > 2 && teams.slice(2).map(team => (
-              <TeamArea
-                key={team.id}
-                team={team}
-                players={players.filter(p => p.teamId === team.id)}
-                maxPlayers={config.playersPerTeam}
-                currentPlayerId={currentPlayerId}
-                canJoin={canJoinTeam(team)}
-                onJoinTeam={() => onJoinTeam(team.id)}
-              />
-            ))}
-            
+          {/* 右侧：控制面板 */}
+          <div className="flex flex-col gap-4 w-72 flex-shrink-0">
             <GomokuControls
               gameState={gameState}
               teams={teams}

@@ -101,20 +101,36 @@ export interface GameState {
 }
 
 export function useGameState() {
-  const [state, setState] = useState<GameState>({
-    playerId: null,
-    playerName: null,
-    room: null,
-    isConnected: false,
+  const [state, setState] = useState<GameState>(() => {
+    // 从 sessionStorage 恢复状态（如果有的话）
+    if (typeof window !== 'undefined') {
+      const savedPlayerId = sessionStorage.getItem('playerId');
+      const savedPlayerName = sessionStorage.getItem('playerName');
+      return {
+        playerId: savedPlayerId,
+        playerName: savedPlayerName,
+        room: null,
+        isConnected: false,
+      };
+    }
+    return {
+      playerId: null,
+      playerName: null,
+      room: null,
+      isConnected: false,
+    };
   });
 
   const handleMessage = useCallback((message: WSMessage) => {
     switch (message.type) {
       case 'STATE_SYNC':
         const payload = message.payload as any;
-        // 保存 playerId 到 sessionStorage，用于重连
+        // 保存 playerId 和 playerName 到 sessionStorage，用于重连
         if (payload.playerId) {
           sessionStorage.setItem('playerId', payload.playerId);
+        }
+        if (payload.playerName) {
+          sessionStorage.setItem('playerName', payload.playerName);
         }
         setState(prev => ({
           ...prev,
@@ -122,6 +138,11 @@ export function useGameState() {
           playerName: payload.playerName ?? prev.playerName,
           room: payload.room ?? prev.room,
         }));
+        break;
+      case 'SWITCH_MODE':
+      case 'PLAYER_JOINED':
+      case 'PLAYER_LEFT':
+        // 这些消息会在后续的 STATE_SYNC 中处理
         break;
       case 'ERROR':
         console.error('Server error:', (message.payload as any).message);

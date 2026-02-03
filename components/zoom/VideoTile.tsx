@@ -25,8 +25,8 @@ export function VideoTile({
   className = '',
 }: VideoTileProps) {
   const sizeStyles = {
-    sm: shape === 'circle' ? 'w-16 h-16' : 'w-32 h-24',
-    md: shape === 'circle' ? 'w-24 h-24' : 'w-48 h-36',
+    sm: shape === 'circle' ? 'w-12 h-12' : 'w-32 h-24',
+    md: shape === 'circle' ? 'w-20 h-20' : 'w-48 h-36',
     lg: shape === 'circle' ? 'w-32 h-32' : 'w-64 h-48',
   };
 
