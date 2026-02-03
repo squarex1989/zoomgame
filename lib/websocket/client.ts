@@ -139,12 +139,28 @@ export function useGameState() {
         if (payload.playerName) {
           sessionStorage.setItem('playerName', payload.playerName);
         }
-        setState(prev => ({
-          ...prev,
-          playerId: payload.playerId ?? prev.playerId,
-          playerName: payload.playerName ?? prev.playerName,
-          room: payload.room ?? prev.room,
-        }));
+        // 只有当数据真正变化时才更新状态，避免不必要的渲染
+        setState(prev => {
+          const newPlayerId = payload.playerId ?? prev.playerId;
+          const newPlayerName = payload.playerName ?? prev.playerName;
+          const newRoom = payload.room ?? prev.room;
+          
+          // 如果数据没变化，返回原状态，避免重新渲染
+          if (
+            prev.playerId === newPlayerId &&
+            prev.playerName === newPlayerName &&
+            JSON.stringify(prev.room) === JSON.stringify(newRoom)
+          ) {
+            return prev;
+          }
+          
+          return {
+            ...prev,
+            playerId: newPlayerId,
+            playerName: newPlayerName,
+            room: newRoom,
+          };
+        });
         break;
       case 'SWITCH_MODE':
       case 'PLAYER_JOINED':
@@ -160,7 +176,10 @@ export function useGameState() {
   const { isConnected, send, lastMessage } = useWebSocket(handleMessage);
 
   useEffect(() => {
-    setState(prev => ({ ...prev, isConnected }));
+    setState(prev => {
+      if (prev.isConnected === isConnected) return prev;
+      return { ...prev, isConnected };
+    });
   }, [isConnected]);
 
   const joinRoom = useCallback((roomId: string) => {
