@@ -28,9 +28,12 @@ export function useWebSocket(
     const connect = () => {
       if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
+      // 获取已保存的 playerId（用于重连）
+      const savedPlayerId = sessionStorage.getItem('playerId') || '';
+      
       // 自动检测协议和主机，使用 /ws 路径
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      const wsUrl = `${protocol}//${window.location.host}/ws?playerId=${savedPlayerId}`;
       
       console.log('Connecting to WebSocket:', wsUrl);
 
@@ -49,7 +52,7 @@ export function useWebSocket(
         
         reconnectTimeoutRef.current = setTimeout(() => {
           connect();
-        }, 3000);
+        }, 1000); // 快速重连
       };
 
       ws.onerror = (error) => {
@@ -109,6 +112,10 @@ export function useGameState() {
     switch (message.type) {
       case 'STATE_SYNC':
         const payload = message.payload as any;
+        // 保存 playerId 到 sessionStorage，用于重连
+        if (payload.playerId) {
+          sessionStorage.setItem('playerId', payload.playerId);
+        }
         setState(prev => ({
           ...prev,
           playerId: payload.playerId ?? prev.playerId,

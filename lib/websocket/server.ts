@@ -24,6 +24,7 @@ class GameWebSocketServer {
   private wss: WebSocketServer | null = null;
   private clients: Map<WebSocket, ClientConnection> = new Map();
   private roundTimers: Map<string, NodeJS.Timeout> = new Map();
+  private disconnectTimers: Map<string, NodeJS.Timeout> = new Map(); // 断线保护
 
   initialize(server: Server) {
     this.wss = new WebSocketServer({ noServer: true });
@@ -46,8 +47,30 @@ class GameWebSocketServer {
     this.wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
       console.log('WebSocket client connected');
       
-      const playerId = uuidv4();
-      const playerName = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
+      // 检查是否有保存的 playerId（重连）
+      const { query } = parse(req.url || '', true);
+      const savedPlayerId = query.playerId as string;
+      
+      let playerId: string;
+      let playerName: string;
+      let isReconnect = false;
+      
+      // 如果有保存的 playerId，尝试恢复
+      if (savedPlayerId && this.disconnectTimers.has(savedPlayerId)) {
+        // 取消断线计时器
+        const timer = this.disconnectTimers.get(savedPlayerId);
+        if (timer) {
+          clearTimeout(timer);
+          this.disconnectTimers.delete(savedPlayerId);
+        }
+        playerId = savedPlayerId;
+        playerName = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]; // 后面会被覆盖
+        isReconnect = true;
+        console.log(`Player ${playerId} reconnected`);
+      } else {
+        playerId = uuidv4();
+        playerName = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
+      }
       
       const connection: ClientConnection = {
         ws,
@@ -64,6 +87,7 @@ class GameWebSocketServer {
         payload: {
           playerId,
           playerName,
+          isReconnect,
         },
       });
 
@@ -80,7 +104,30 @@ class GameWebSocketServer {
         console.log('WebSocket client disconnected');
         const conn = this.clients.get(ws);
         if (conn && conn.roomId) {
-          this.handleLeaveRoom(ws);
+          // 设置断线保护计时器，30秒后才真正移除玩家
+          const playerId = conn.playerId;
+          const roomId = conn.roomId;
+          
+          // 清除之前的计时器（如果有）
+          const existingTimer = this.disconnectTimers.get(playerId);
+          if (existingTimer) {
+            clearTimeout(existingTimer);
+          }
+          
+          const timer = setTimeout(() => {
+            console.log(`Player ${playerId} grace period expired, removing from room`);
+            gameStore.removePlayer(roomId, playerId);
+            this.disconnectTimers.delete(playerId);
+            
+            // 通知房间内其他玩家
+            this.broadcastToRoom(roomId, {
+              type: 'PLAYER_LEFT',
+              payload: { playerId },
+            });
+            this.broadcastRoomState(roomId);
+          }, 30000); // 30 秒保护期
+          
+          this.disconnectTimers.set(playerId, timer);
         }
         this.clients.delete(ws);
       });
@@ -146,9 +193,13 @@ class GameWebSocketServer {
       return;
     }
 
-    // 检查该玩家是否已在房间中（防止重复加入）
-    if (room.players.has(conn.playerId)) {
+    // 检查该玩家是否已在房间中（重连情况）
+    const existingPlayer = room.players.get(conn.playerId);
+    if (existingPlayer) {
+      // 重连：恢复玩家名称到连接中
+      conn.playerName = existingPlayer.name;
       conn.roomId = payload.roomId;
+      console.log(`Player ${conn.playerId} rejoined room ${payload.roomId}`);
       this.sendRoomState(ws, payload.roomId);
       return;
     }
