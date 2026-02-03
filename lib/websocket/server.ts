@@ -18,6 +18,7 @@ interface ClientConnection {
   playerId: string;
   roomId: string | null;
   playerName: string;
+  isAlive: boolean;
 }
 
 class GameWebSocketServer {
@@ -25,6 +26,7 @@ class GameWebSocketServer {
   private clients: Map<WebSocket, ClientConnection> = new Map();
   private roundTimers: Map<string, NodeJS.Timeout> = new Map();
   private disconnectTimers: Map<string, NodeJS.Timeout> = new Map(); // 断线保护
+  private heartbeatInterval: NodeJS.Timeout | null = null;
 
   initialize(server: Server) {
     this.wss = new WebSocketServer({ noServer: true });
@@ -43,6 +45,18 @@ class GameWebSocketServer {
         socket.destroy();
       }
     });
+
+    // 心跳检测：每 25 秒 ping 一次，防止连接被关闭
+    this.heartbeatInterval = setInterval(() => {
+      this.clients.forEach((conn, ws) => {
+        if (!conn.isAlive) {
+          // 上次 ping 没有收到 pong，连接可能已断开
+          return ws.terminate();
+        }
+        conn.isAlive = false;
+        ws.ping();
+      });
+    }, 25000);
 
     this.wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
       console.log('WebSocket client connected');
@@ -77,6 +91,7 @@ class GameWebSocketServer {
         playerId,
         roomId: null,
         playerName,
+        isAlive: true,
       };
       
       this.clients.set(ws, connection);
@@ -89,6 +104,12 @@ class GameWebSocketServer {
           playerName,
           isReconnect,
         },
+      });
+
+      // 心跳响应
+      ws.on('pong', () => {
+        const conn = this.clients.get(ws);
+        if (conn) conn.isAlive = true;
       });
 
       ws.on('message', (data: Buffer) => {
@@ -125,7 +146,7 @@ class GameWebSocketServer {
               payload: { playerId },
             });
             this.broadcastRoomState(roomId);
-          }, 30000); // 30 秒保护期
+          }, 600000); // 10 分钟保护期
           
           this.disconnectTimers.set(playerId, timer);
         }

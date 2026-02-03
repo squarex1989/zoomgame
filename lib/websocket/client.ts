@@ -43,6 +43,13 @@ export function useWebSocket(
       ws.onopen = () => {
         console.log('WebSocket connected');
         setIsConnected(true);
+        
+        // 自动重新加入之前的房间
+        const savedRoomId = sessionStorage.getItem('currentRoomId');
+        if (savedRoomId) {
+          console.log('Auto-rejoining room:', savedRoomId);
+          ws.send(JSON.stringify({ type: 'JOIN_ROOM', payload: { roomId: savedRoomId } }));
+        }
       };
 
       ws.onclose = () => {
@@ -157,10 +164,13 @@ export function useGameState() {
   }, [isConnected]);
 
   const joinRoom = useCallback((roomId: string) => {
+    // 保存房间 ID，用于重连
+    sessionStorage.setItem('currentRoomId', roomId);
     send('JOIN_ROOM', { roomId });
   }, [send]);
 
   const leaveRoom = useCallback(() => {
+    sessionStorage.removeItem('currentRoomId');
     send('LEAVE_ROOM', {});
     setState(prev => ({ ...prev, room: null }));
   }, [send]);
