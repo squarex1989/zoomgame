@@ -38,6 +38,8 @@ export default function RoomPage({ params }: RoomPageProps) {
   const [viewMode, setViewMode] = useState<'speaker' | 'gallery'>('speaker');
   const [roomExists, setRoomExists] = useState<boolean | null>(null);
   const [hasJoinedOnce, setHasJoinedOnce] = useState(false);
+  const hasCheckedRoom = useRef(false);
+  const hasCalledJoin = useRef(false);
   
   // 保存上一次有效的 room 数据，用于重连时保持 UI
   const lastRoomRef = useRef<any>(null);
@@ -45,8 +47,11 @@ export default function RoomPage({ params }: RoomPageProps) {
     lastRoomRef.current = room;
   }
 
-  // 检查房间是否存在
+  // 检查房间是否存在（只执行一次）
   useEffect(() => {
+    if (hasCheckedRoom.current) return;
+    hasCheckedRoom.current = true;
+    
     const checkRoom = async () => {
       try {
         const response = await fetch(`/api/room/${roomId}`);
@@ -54,6 +59,8 @@ export default function RoomPage({ params }: RoomPageProps) {
         
         if (data.success) {
           setRoomExists(true);
+          // 保存房间 ID，让 WebSocket 自动加入
+          sessionStorage.setItem('currentRoomId', roomId);
         } else {
           setRoomExists(false);
         }
@@ -65,13 +72,12 @@ export default function RoomPage({ params }: RoomPageProps) {
     checkRoom();
   }, [roomId]);
 
-  // 连接成功后加入房间
+  // 首次连接成功后标记已加入
   useEffect(() => {
-    if (isConnected && roomExists) {
-      joinRoom(roomId);
+    if (isConnected && room && !hasJoinedOnce) {
       setHasJoinedOnce(true);
     }
-  }, [isConnected, roomExists, roomId, joinRoom]);
+  }, [isConnected, room, hasJoinedOnce]);
 
   const handleLeave = () => {
     leaveRoom();
