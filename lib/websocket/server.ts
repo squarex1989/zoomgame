@@ -61,9 +61,10 @@ class GameWebSocketServer {
     this.wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
       console.log('WebSocket client connected');
       
-      // 检查是否有保存的 playerId（重连）
+      // 检查是否有保存的 playerId 和自定义名字
       const { query } = parse(req.url || '', true);
       const savedPlayerId = query.playerId as string;
+      const customName = query.name as string;
       
       let playerId: string;
       let playerName: string;
@@ -78,12 +79,13 @@ class GameWebSocketServer {
           this.disconnectTimers.delete(savedPlayerId);
         }
         playerId = savedPlayerId;
-        playerName = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]; // 后面会被覆盖
+        playerName = customName || RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
         isReconnect = true;
         console.log(`Player ${playerId} reconnected`);
       } else {
         playerId = uuidv4();
-        playerName = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
+        // 使用自定义名字或随机名字
+        playerName = customName || RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
       }
       
       const connection: ClientConnection = {
@@ -198,6 +200,9 @@ class GameWebSocketServer {
         break;
       case 'SWITCH_MODE':
         this.handleSwitchMode(ws, message.payload as { mode: 'meeting' | 'game' });
+        break;
+      case 'SET_NAME':
+        this.handleSetName(ws, message.payload as { name: string });
         break;
       default:
         console.warn('Unknown message type:', message.type);
@@ -388,6 +393,25 @@ class GameWebSocketServer {
     this.broadcastRoomState(conn.roomId);
   }
 
+  private handleSetName(ws: WebSocket, payload: { name: string }) {
+    const conn = this.clients.get(ws);
+    if (!conn) return;
+
+    const name = payload.name.trim().substring(0, 20); // 限制长度
+    if (!name) return;
+
+    conn.playerName = name;
+
+    // 如果在房间中，更新玩家名字
+    if (conn.roomId) {
+      gameStore.updatePlayer(conn.roomId, conn.playerId, { 
+        name,
+        avatar: getAvatarUrl(name),
+      });
+      this.broadcastRoomState(conn.roomId);
+    }
+  }
+
   private checkAllReady(roomId: string) {
     const room = gameStore.getRoom(roomId);
     if (!room || !room.gameState) return;
@@ -534,16 +558,32 @@ class GameWebSocketServer {
     const config = room.gameState.config;
     const history = room.gameState.gameHistory;
     
+    // 重置游戏状态
     room.gameState = gameStore.createInitialGameState(config);
     room.gameState.gameHistory = history;
-    room.gameState.phase = 'playing';
-    room.gameState.currentRound = 1;
+    room.gameState.phase = 'waiting'; // 等待所有人准备
+    room.gameState.currentRound = 0;
 
+    // 重置队伍的棋子数量
     room.teams.forEach(team => {
       team.stoneCount = 0;
     });
 
-    this.startRoundTimer(roomId);
+    // 重置所有玩家的准备状态（但保持队伍）
+    room.players.forEach(player => {
+      player.isReady = false;
+    });
+
+    // 通知所有人一局结束，等待下一局
+    this.broadcastToRoom(roomId, {
+      type: 'GAME_RESET',
+      payload: { 
+        message: '本局结束，请准备开始下一局',
+        gamesPlayed: history.length,
+        totalGames: config.totalRounds,
+      },
+    });
+    
     this.broadcastRoomState(roomId);
   }
 

@@ -28,12 +28,13 @@ export function useWebSocket(
     const connect = () => {
       if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-      // 获取已保存的 playerId（用于重连）
+      // 获取已保存的 playerId 和自定义名字（用于重连）
       const savedPlayerId = sessionStorage.getItem('playerId') || '';
+      const savedCustomName = localStorage.getItem('playerName') || '';
       
       // 自动检测协议和主机，使用 /ws 路径
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws?playerId=${savedPlayerId}`;
+      const wsUrl = `${protocol}//${window.location.host}/ws?playerId=${savedPlayerId}&name=${encodeURIComponent(savedCustomName)}`;
       
       console.log('Connecting to WebSocket:', wsUrl);
 
@@ -109,10 +110,11 @@ export interface GameState {
 
 export function useGameState() {
   const [state, setState] = useState<GameState>(() => {
-    // 从 sessionStorage 恢复状态（如果有的话）
+    // 从 localStorage/sessionStorage 恢复状态
     if (typeof window !== 'undefined') {
       const savedPlayerId = sessionStorage.getItem('playerId');
-      const savedPlayerName = sessionStorage.getItem('playerName');
+      const customName = localStorage.getItem('playerName');
+      const savedPlayerName = customName || sessionStorage.getItem('playerName');
       return {
         playerId: savedPlayerId,
         playerName: savedPlayerName,
@@ -126,6 +128,14 @@ export function useGameState() {
       room: null,
       isConnected: false,
     };
+  });
+  
+  // 自定义名字
+  const [customName, setCustomNameState] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('playerName');
+    }
+    return null;
   });
 
   const handleMessage = useCallback((message: WSMessage) => {
@@ -226,6 +236,13 @@ export function useGameState() {
     send('SWITCH_MODE', { mode });
   }, [send]);
 
+  const setCustomName = useCallback((name: string) => {
+    setCustomNameState(name);
+    localStorage.setItem('playerName', name);
+    // 如果已连接，发送更新名字的消息
+    send('SET_NAME', { name });
+  }, [send]);
+
   return {
     ...state,
     isConnected,
@@ -240,5 +257,6 @@ export function useGameState() {
     startGame,
     placeStone,
     switchMode,
+    setCustomName,
   };
 }

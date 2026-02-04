@@ -100,7 +100,9 @@ export type WSMessageType =
   | 'ROUND_START'
   | 'ROUND_END'
   | 'GAME_END'
+  | 'GAME_RESET'
   | 'SWITCH_MODE'
+  | 'SET_NAME'
   | 'STATE_SYNC'
   | 'ERROR';
 
