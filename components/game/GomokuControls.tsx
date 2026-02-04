@@ -128,8 +128,8 @@ export function GomokuControls({
           <div className="bg-[#2D2D2D]/50 rounded-lg p-3 text-xs text-gray-400 space-y-1">
             <div className="font-medium text-gray-300 mb-1">⚖️ 同位置判定规则</div>
             <p>判定 1：场上棋子最少的队伍在该位置落子</p>
-            <p>判定 2：若 1 打平手，在该位置投入更多棋子的队伍落子</p>
-            <p>判定 3：若 2 打平手，本回合该位置不落子</p>
+            <p>判定 2：若 1 打平手，平手队伍中，在该位置投入最多棋子的队伍落子</p>
+            <p>判定 3：若 2 打平手，本回合该位置没有队伍落子</p>
           </div>
         </div>
       )}
@@ -148,7 +148,7 @@ export function GomokuControls({
             </div>
             
             <div className="font-medium text-white mt-3 mb-2">⚖️ 同位置判定规则</div>
-            <div className="space-y-1 text-xs">
+            <div className="space-y-1">
               <p>判定 1：场上棋子最少的队伍在该位置落子</p>
               <p>判定 2：若 1 打平手，在该位置投入更多棋子的队伍落子</p>
               <p>判定 3：若 2 打平手，本回合该位置不落子</p>
