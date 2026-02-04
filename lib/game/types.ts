@@ -144,9 +144,7 @@ export function getAvatarUrl(name: string): string {
 export const BOARD_SIZE = 15;
 export const WIN_LENGTH = 5;
 
-// 回合时间配置
+// 回合时间配置（统一 15 秒）
 export function getRoundTime(roundNumber: number): number {
-  if (roundNumber <= 5) return 5;
-  if (roundNumber <= 10) return 10;
   return 15;
 }
