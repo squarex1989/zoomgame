@@ -117,21 +117,19 @@ export function GomokuControls({
             </div>
           </div>
 
-          {/* 队伍棋子数统计 */}
-          <div className="space-y-2">
-            <div className="text-gray-400 text-sm">队伍棋子数</div>
-            {teams.map(team => (
-              <div key={team.id} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: `var(--team-${team.color})` }}
-                  />
-                  <span className="text-white capitalize">{team.color}</span>
-                </div>
-                <span className="text-white font-bold">{team.stoneCount}</span>
-              </div>
-            ))}
+          {/* 游戏进度 */}
+          {gameState?.gameHistory && (
+            <div className="text-center text-gray-400 text-sm">
+              第 {(gameState.gameHistory.length || 0) + 1} / {gameState.config.totalRounds} 局
+            </div>
+          )}
+
+          {/* 简要规则提示 */}
+          <div className="bg-[#2D2D2D]/50 rounded-lg p-3 text-xs text-gray-400 space-y-1">
+            <div className="font-medium text-gray-300 mb-1">⚖️ 判定规则</div>
+            <p>• 多队同位置 → 均无效</p>
+            <p>• 同队同位置 → 只算1子</p>
+            <p>• 5子连线 → 本局获胜</p>
           </div>
         </div>
       )}
@@ -140,12 +138,20 @@ export function GomokuControls({
       {(phase === 'waiting' || phase === 'ready') && (
         <div className="space-y-4">
           {/* 游戏规则 */}
-          <div className="text-gray-400 text-sm space-y-1">
-            <div className="font-medium text-white mb-2">游戏规则：</div>
-            <p>• 每回合所有人同时落子</p>
-            <p>• 队友可见，对手不可见</p>
-            <p>• 同位置冲突时进行判定</p>
-            <p>• 5子连线获胜</p>
+          <div className="text-gray-400 text-sm space-y-2">
+            <div className="font-medium text-white mb-2">📖 游戏规则</div>
+            <div className="space-y-1">
+              <p>• 每回合所有人同时落子（15秒）</p>
+              <p>• 队友可见，对手不可见</p>
+              <p>• 5子连线获胜</p>
+            </div>
+            
+            <div className="font-medium text-white mt-3 mb-2">⚖️ 冲突判定</div>
+            <div className="space-y-1 text-xs">
+              <p>• 同位置多队落子 → 均无效</p>
+              <p>• 同队多人同位置 → 只算1子</p>
+              <p>• 无冲突 → 正常落子</p>
+            </div>
           </div>
 
           {/* 主持人配置 */}

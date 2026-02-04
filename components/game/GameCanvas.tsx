@@ -1,11 +1,49 @@
 'use client';
 
 import React from 'react';
-import { Player, Team, GomokuState, GameType, TeamColor } from '@/lib/game/types';
+import { Player, Team, GomokuState, GameType, TeamColor, TEAM_COLOR_HEX } from '@/lib/game/types';
 import { GomokuBoard } from './GomokuBoard';
 import { GomokuControls } from './GomokuControls';
 import { TeamArea, SpectatorList } from './TeamArea';
 import { GameSelector } from './GameSelector';
+
+// 棋子排名组件
+function StoneRanking({ teams }: { teams: Team[] }) {
+  // 按棋子数从高到低排序
+  const sortedTeams = [...teams].sort((a, b) => b.stoneCount - a.stoneCount);
+  
+  return (
+    <div className="bg-[#1A1A1A]/90 rounded-xl p-4">
+      <h4 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
+        <span>🏆</span>
+        棋子排名
+      </h4>
+      <div className="space-y-2">
+        {sortedTeams.map((team, index) => (
+          <div 
+            key={team.id}
+            className={`
+              flex items-center justify-between p-2 rounded-lg
+              ${index === 0 ? 'bg-yellow-500/20' : 'bg-[#2D2D2D]/50'}
+            `}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400 text-xs w-4">{index + 1}</span>
+              <div 
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: TEAM_COLOR_HEX[team.color] }}
+              />
+              <span className="text-white text-sm capitalize">{team.color}</span>
+            </div>
+            <span className={`font-bold text-sm ${index === 0 ? 'text-yellow-400' : 'text-white'}`}>
+              {team.stoneCount}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 interface GameCanvasProps {
   gameType: GameType;
@@ -79,8 +117,15 @@ export function GameCanvas({
 
       {/* 游戏内容区 */}
       {gameType === 'gomoku' ? (
-        <div className="flex-1 flex items-start justify-center gap-6 p-4 overflow-auto">
-          {/* 左侧：棋盘 + 队伍 */}
+        <div className="flex-1 flex items-start justify-center gap-4 p-4 overflow-auto">
+          {/* 左侧：棋子排名（仅游戏中显示） */}
+          {gameState?.phase === 'playing' && (
+            <div className="w-40 flex-shrink-0">
+              <StoneRanking teams={teams} />
+            </div>
+          )}
+
+          {/* 中间：棋盘 + 队伍 */}
           <div className="flex flex-col items-center gap-4">
             {/* 棋盘 */}
             <GomokuBoard
