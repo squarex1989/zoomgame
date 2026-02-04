@@ -126,10 +126,10 @@ export function GomokuControls({
 
           {/* 简要规则提示 */}
           <div className="bg-[#2D2D2D]/50 rounded-lg p-3 text-xs text-gray-400 space-y-1">
-            <div className="font-medium text-gray-300 mb-1">⚖️ 判定规则</div>
-            <p>• 多队同位置 → 均无效</p>
-            <p>• 同队同位置 → 只算1子</p>
-            <p>• 5子连线 → 本局获胜</p>
+            <div className="font-medium text-gray-300 mb-1">⚖️ 同位置判定规则</div>
+            <p>判定 1：场上棋子最少的队伍在该位置落子</p>
+            <p>判定 2：若 1 打平手，在该位置投入更多棋子的队伍落子</p>
+            <p>判定 3：若 2 打平手，本回合该位置不落子</p>
           </div>
         </div>
       )}
@@ -139,18 +139,19 @@ export function GomokuControls({
         <div className="space-y-4">
           {/* 游戏规则 */}
           <div className="text-gray-400 text-sm space-y-2">
-            <div className="font-medium text-white mb-2">📖 游戏规则</div>
+            <div className="font-medium text-white mb-2">📖 基本规则</div>
             <div className="space-y-1">
-              <p>• 每回合所有人同时落子（15秒）</p>
-              <p>• 队友可见，对手不可见</p>
-              <p>• 5子连线获胜</p>
+              <p>1. 每回合所有人都可以落子（最多15秒）</p>
+              <p>2. 回合结束判定落子结果</p>
+              <p>3. 完成判定前只能看到队友的落子</p>
+              <p>4. 最先完成五子连线队伍获胜</p>
             </div>
             
-            <div className="font-medium text-white mt-3 mb-2">⚖️ 冲突判定</div>
+            <div className="font-medium text-white mt-3 mb-2">⚖️ 同位置判定规则</div>
             <div className="space-y-1 text-xs">
-              <p>• 同位置多队落子 → 均无效</p>
-              <p>• 同队多人同位置 → 只算1子</p>
-              <p>• 无冲突 → 正常落子</p>
+              <p>判定 1：场上棋子最少的队伍在该位置落子</p>
+              <p>判定 2：若 1 打平手，在该位置投入更多棋子的队伍落子</p>
+              <p>判定 3：若 2 打平手，本回合该位置不落子</p>
             </div>
           </div>
 
