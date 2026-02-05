@@ -104,7 +104,15 @@ export type WSMessageType =
   | 'SWITCH_MODE'
   | 'SET_NAME'
   | 'STATE_SYNC'
+  | 'WEBRTC_SIGNAL'
   | 'ERROR';
+
+// WebRTC 信令消息
+export interface WebRTCSignalPayload {
+  targetId: string;     // 目标用户 ID
+  signal: unknown;      // SDP offer/answer 或 ICE candidate
+  fromId?: string;      // 发送者 ID（服务器填充）
+}
 
 export interface WSMessage {
   type: WSMessageType;

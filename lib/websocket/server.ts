@@ -8,6 +8,7 @@ import {
   getAvatarUrl,
   GameConfig,
   getRoundTime,
+  WebRTCSignalPayload,
 } from '../game/types';
 import { GomokuEngine } from '../game/gomoku-engine';
 import { v4 as uuidv4 } from 'uuid';
@@ -203,6 +204,9 @@ class GameWebSocketServer {
         break;
       case 'SET_NAME':
         this.handleSetName(ws, message.payload as { name: string });
+        break;
+      case 'WEBRTC_SIGNAL':
+        this.handleWebRTCSignal(ws, message.payload as WebRTCSignalPayload);
         break;
       default:
         console.warn('Unknown message type:', message.type);
@@ -409,6 +413,33 @@ class GameWebSocketServer {
         avatar: getAvatarUrl(name),
       });
       this.broadcastRoomState(conn.roomId);
+    }
+  }
+
+  // WebRTC 信令转发
+  private handleWebRTCSignal(ws: WebSocket, payload: WebRTCSignalPayload) {
+    const conn = this.clients.get(ws);
+    if (!conn || !conn.roomId) return;
+
+    const { targetId, signal } = payload;
+
+    // 找到目标用户的 WebSocket 连接
+    let targetWs: WebSocket | null = null;
+    this.clients.forEach((targetConn, targetWsClient) => {
+      if (targetConn.playerId === targetId && targetConn.roomId === conn.roomId) {
+        targetWs = targetWsClient;
+      }
+    });
+
+    if (targetWs) {
+      // 转发信令消息，附带发送者 ID
+      this.send(targetWs, {
+        type: 'WEBRTC_SIGNAL',
+        payload: {
+          fromId: conn.playerId,
+          signal,
+        },
+      });
     }
   }
 

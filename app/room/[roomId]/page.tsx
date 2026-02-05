@@ -32,6 +32,8 @@ export default function RoomPage({ params }: RoomPageProps) {
     placeStone,
     switchMode,
     setCustomName,
+    onWebRTCSignal,
+    sendWebRTCSignal,
   } = useGameState();
 
   const [isMuted, setIsMuted] = useState(false);
@@ -256,12 +258,18 @@ export default function RoomPage({ params }: RoomPageProps) {
             currentPlayerId={playerId}
             activePlayerId={displayRoom.hostId}
             isVideoOff={isVideoOff}
+            isMuted={isMuted}
+            sendWebRTCSignal={sendWebRTCSignal}
+            onWebRTCSignal={onWebRTCSignal}
           />
         ) : (
           <GalleryView
             players={players}
             currentPlayerId={playerId}
             isVideoOff={isVideoOff}
+            isMuted={isMuted}
+            sendWebRTCSignal={sendWebRTCSignal}
+            onWebRTCSignal={onWebRTCSignal}
           />
         )
       )}

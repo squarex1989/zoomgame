@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { WSMessage, WSMessageType } from '../game/types';
+import { WSMessage, WSMessageType, WebRTCSignalPayload } from '../game/types';
 
 interface UseWebSocketReturn {
   isConnected: boolean;
   send: (type: WSMessageType, payload: unknown) => void;
   lastMessage: WSMessage | null;
+  onWebRTCSignal: (callback: (fromId: string, signal: unknown) => void) => void;
+  sendWebRTCSignal: (targetId: string, signal: unknown) => void;
 }
 
 export function useWebSocket(
@@ -17,6 +19,7 @@ export function useWebSocket(
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const onMessageRef = useRef(onMessage);
+  const webrtcCallbackRef = useRef<((fromId: string, signal: unknown) => void) | null>(null);
 
   useEffect(() => {
     onMessageRef.current = onMessage;
@@ -70,6 +73,14 @@ export function useWebSocket(
       ws.onmessage = (event) => {
         try {
           const message: WSMessage = JSON.parse(event.data);
+          
+          // 特殊处理 WebRTC 信令消息
+          if (message.type === 'WEBRTC_SIGNAL') {
+            const payload = message.payload as { fromId: string; signal: unknown };
+            webrtcCallbackRef.current?.(payload.fromId, payload.signal);
+            return;
+          }
+          
           setLastMessage(message);
           onMessageRef.current?.(message);
         } catch (error) {
@@ -97,7 +108,15 @@ export function useWebSocket(
     }
   }, []);
 
-  return { isConnected, send, lastMessage };
+  const onWebRTCSignal = useCallback((callback: (fromId: string, signal: unknown) => void) => {
+    webrtcCallbackRef.current = callback;
+  }, []);
+
+  const sendWebRTCSignal = useCallback((targetId: string, signal: unknown) => {
+    send('WEBRTC_SIGNAL', { targetId, signal });
+  }, [send]);
+
+  return { isConnected, send, lastMessage, onWebRTCSignal, sendWebRTCSignal };
 }
 
 // 游戏状态管理 Hook
@@ -183,7 +202,7 @@ export function useGameState() {
     }
   }, []);
 
-  const { isConnected, send, lastMessage } = useWebSocket(handleMessage);
+  const { isConnected, send, lastMessage, onWebRTCSignal, sendWebRTCSignal } = useWebSocket(handleMessage);
 
   useEffect(() => {
     setState(prev => {
@@ -258,5 +277,7 @@ export function useGameState() {
     placeStone,
     switchMode,
     setCustomName,
+    onWebRTCSignal,
+    sendWebRTCSignal,
   };
 }

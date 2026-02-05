@@ -1,13 +1,17 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Player } from '@/lib/game/types';
+import { useWebRTC } from '@/lib/webrtc/useWebRTC';
 
 interface MeetingViewProps {
   players: Player[];
   currentPlayerId: string | null;
   activePlayerId?: string;
   isVideoOff?: boolean;
+  isMuted?: boolean;
+  sendWebRTCSignal?: (targetId: string, signal: unknown) => void;
+  onWebRTCSignal?: (callback: (fromId: string, signal: unknown) => void) => void;
 }
 
 // 计算最优的网格布局
@@ -49,7 +53,7 @@ function getAvatarColors(name: string): { bg: string; bgDark: string } {
 }
 
 // 本地摄像头视频组件
-function LocalVideo({ isVideoOff }: { isVideoOff?: boolean }) {
+function LocalVideo({ isVideoOff, onStreamReady }: { isVideoOff?: boolean; onStreamReady?: (stream: MediaStream | null) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -68,18 +72,19 @@ function LocalVideo({ isVideoOff }: { isVideoOff?: boolean }) {
           videoRef.current.srcObject = null;
         }
         setIsReady(false);
+        onStreamReady?.(null);
         return;
       }
 
       try {
-        // 请求摄像头权限
+        // 请求摄像头和麦克风权限
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
             width: { ideal: 1280 },
             height: { ideal: 720 },
             facingMode: 'user'
           },
-          audio: false 
+          audio: true, // 需要音频用于 WebRTC 传输
         });
         
         if (!mounted) {
@@ -88,6 +93,7 @@ function LocalVideo({ isVideoOff }: { isVideoOff?: boolean }) {
         }
 
         streamRef.current = stream;
+        onStreamReady?.(stream);
         
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -106,6 +112,7 @@ function LocalVideo({ isVideoOff }: { isVideoOff?: boolean }) {
         console.log('Camera not available:', err);
         if (mounted) {
           setIsReady(false);
+          onStreamReady?.(null);
         }
       }
     };
@@ -119,14 +126,14 @@ function LocalVideo({ isVideoOff }: { isVideoOff?: boolean }) {
         streamRef.current = null;
       }
     };
-  }, [isVideoOff]);
+  }, [isVideoOff, onStreamReady]);
 
   return (
     <video
       ref={videoRef}
       autoPlay
       playsInline
-      muted
+      muted // 本地预览静音，避免回声
       className={`
         absolute inset-0 w-full h-full object-cover scale-x-[-1] z-10
         transition-opacity duration-300
@@ -136,10 +143,68 @@ function LocalVideo({ isVideoOff }: { isVideoOff?: boolean }) {
   );
 }
 
-export function MeetingView({ players, currentPlayerId, activePlayerId, isVideoOff }: MeetingViewProps) {
-  // 限制最多显示 25 人
+// 远程视频组件
+function RemoteVideo({ stream }: { stream: MediaStream }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.onloadedmetadata = () => {
+        videoRef.current?.play().then(() => {
+          setIsReady(true);
+        }).catch(err => {
+          console.log('Remote video play failed:', err);
+        });
+      };
+    }
+  }, [stream]);
+
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      className={`
+        absolute inset-0 w-full h-full object-cover z-10
+        transition-opacity duration-300
+        ${isReady ? 'opacity-100' : 'opacity-0'}
+      `}
+    />
+  );
+}
+
+export function MeetingView({ 
+  players, 
+  currentPlayerId, 
+  activePlayerId, 
+  isVideoOff,
+  isMuted = false,
+  sendWebRTCSignal,
+  onWebRTCSignal,
+}: MeetingViewProps) {
   const displayPlayers = players.slice(0, 25);
   const { cols, rows } = getGridLayout(displayPlayers.length);
+  const playerIds = displayPlayers.map(p => p.id);
+
+  // WebRTC Hook
+  const { localStream, remoteStreams, handleSignal } = useWebRTC({
+    localPlayerId: currentPlayerId,
+    playerIds,
+    isVideoOff: isVideoOff || false,
+    isMuted,
+    sendSignal: sendWebRTCSignal || (() => {}),
+  });
+
+  // 注册信令处理回调
+  useEffect(() => {
+    if (onWebRTCSignal) {
+      onWebRTCSignal((fromId, signal) => {
+        handleSignal(fromId, signal as any);
+      });
+    }
+  }, [onWebRTCSignal, handleSignal]);
 
   if (displayPlayers.length === 0) {
     return (
@@ -149,7 +214,6 @@ export function MeetingView({ players, currentPlayerId, activePlayerId, isVideoO
     );
   }
 
-  // 计算每个视频窗口的宽高比
   const getAspectStyle = () => {
     if (displayPlayers.length === 1) {
       return { maxWidth: '900px', maxHeight: '600px' };
@@ -171,6 +235,8 @@ export function MeetingView({ players, currentPlayerId, activePlayerId, isVideoO
           const isCurrentUser = player.id === currentPlayerId;
           const isSpeaking = player.id === activePlayerId;
           const colors = getAvatarColors(player.name);
+          const remoteStream = remoteStreams.get(player.id);
+          const hasRemoteVideo = !isCurrentUser && remoteStream;
           
           return (
             <div 
@@ -185,11 +251,14 @@ export function MeetingView({ players, currentPlayerId, activePlayerId, isVideoO
                 aspectRatio: '16/9',
               }}
             >
-              {/* 当前用户显示摄像头视频 */}
+              {/* 当前用户显示本地摄像头视频 */}
               {isCurrentUser && <LocalVideo isVideoOff={isVideoOff} />}
               
-              {/* 头像（视频关闭或其他用户时显示） */}
-              {(!isCurrentUser || isVideoOff) && (
+              {/* 远程用户显示 WebRTC 视频流 */}
+              {hasRemoteVideo && <RemoteVideo stream={remoteStream} />}
+              
+              {/* 头像（视频不可用时显示） */}
+              {((!isCurrentUser && !hasRemoteVideo) || (isCurrentUser && isVideoOff)) && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div 
                     className={`
@@ -217,15 +286,26 @@ export function MeetingView({ players, currentPlayerId, activePlayerId, isVideoO
                 </div>
               )}
               
+              {/* 连接状态指示器（远程用户） */}
+              {!isCurrentUser && (
+                <div className="absolute top-2 right-2 z-20">
+                  {hasRemoteVideo ? (
+                    <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" title="已连接" />
+                  ) : (
+                    <div className="w-3 h-3 rounded-full bg-gray-500" title="等待连接" />
+                  )}
+                </div>
+              )}
+              
               {/* 名字标签 - 底部 */}
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 z-20">
                 <div className="flex items-center gap-2">
                   {/* 麦克风图标 */}
                   <div className={`
                     flex items-center justify-center rounded
-                    ${isCurrentUser ? 'text-red-400' : 'text-white'}
+                    ${(isCurrentUser && isMuted) ? 'text-red-400' : 'text-white'}
                   `}>
-                    {isCurrentUser ? (
+                    {(isCurrentUser && isMuted) ? (
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M19 11c0 1.19-.34 2.3-.9 3.28l-1.23-1.23c.27-.62.43-1.31.43-2.05H19zm-4 .16L9 5.18V5a3 3 0 0 1 6 0v6.16zM4.27 3L3 4.27l6 6V11c0 1.66 1.34 3 3 3 .2 0 .39-.02.58-.06l1.74 1.74A5.98 5.98 0 0 1 12 17c-2.76 0-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-2.08c.57-.07 1.12-.21 1.63-.4l5.1 5.1 1.27-1.27L4.27 3z"/>
                       </svg>
@@ -261,6 +341,6 @@ export function MeetingView({ players, currentPlayerId, activePlayerId, isVideoO
 }
 
 // 网格视图（别名，与 MeetingView 相同）
-export function GalleryView({ players, currentPlayerId, isVideoOff }: MeetingViewProps) {
-  return <MeetingView players={players} currentPlayerId={currentPlayerId} isVideoOff={isVideoOff} />;
+export function GalleryView(props: MeetingViewProps) {
+  return <MeetingView {...props} />;
 }
