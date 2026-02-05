@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface HeaderProps {
   roomId: string;
@@ -11,9 +11,28 @@ interface HeaderProps {
 }
 
 export function Header({ roomId, participantCount, isGameMode, isConnected = true, onGameModeToggle }: HeaderProps) {
+  const [showToast, setShowToast] = useState(false);
+
+  // 3秒后显示提示，持续显示直到用户点击
+  useEffect(() => {
+    if (!isGameMode) {
+      const timer = setTimeout(() => {
+        setShowToast(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowToast(false);
+    }
+  }, [isGameMode]);
+
   const copyRoomLink = () => {
     const link = `${window.location.origin}/room/${roomId}`;
     navigator.clipboard.writeText(link);
+  };
+
+  const handleGameModeClick = () => {
+    setShowToast(false);
+    onGameModeToggle?.();
   };
 
   return (
@@ -60,23 +79,59 @@ export function Header({ roomId, participantCount, isGameMode, isConnected = tru
         {!isGameMode && onGameModeToggle && (
           <div className="relative">
             <button
-              onClick={onGameModeToggle}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-medium hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg shadow-purple-500/30"
+              onClick={handleGameModeClick}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-medium hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg shadow-purple-500/30 hover:scale-105"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M21.58 16.09l-1.09-7.66A3.996 3.996 0 0 0 16.53 5H7.47a3.996 3.996 0 0 0-3.96 3.43l-1.09 7.66C2.19 17.72 3.37 19 4.99 19H7v-2H4.99l1.07-7.5c.18-1.3 1.29-2.26 2.59-2.26h9.71c1.3 0 2.41.96 2.59 2.26L22.01 17H19v2h3.01c1.62 0 2.8-1.28 2.57-2.91zM10 12h4v2h-4zm0 4h4v2h-4z"/>
               </svg>
               <span>Zoom for Fun</span>
             </button>
-            {/* Click me! Badge */}
-            <div className="absolute -top-2 -right-2 animate-bounce">
-              <div className="relative">
-                <div className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg">
-                  Click me!
+            
+            {/* 指向性 Toast 提示 */}
+            {showToast && (
+              <div className="absolute top-full right-0 mt-3 z-50 animate-fade-in">
+                {/* 上箭头 */}
+                <div className="absolute -top-2 right-8 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-[#1A1A1A]" />
+                
+                {/* Toast 内容 */}
+                <div className="bg-[#1A1A1A] rounded-xl px-4 py-3 shadow-2xl border border-purple-500/30 min-w-[200px]">
+                  <div className="flex items-start gap-3">
+                    {/* 游戏图标 */}
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xl">🎮</span>
+                    </div>
+                    
+                    {/* 文字内容 */}
+                    <div className="flex-1">
+                      <div className="text-white font-semibold text-sm">试试 Zoom for Fun!</div>
+                      <div className="text-gray-400 text-xs mt-0.5">和朋友一起玩游戏 🎯</div>
+                    </div>
+                    
+                    {/* 关闭按钮 */}
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setShowToast(false); }}
+                      className="text-gray-500 hover:text-gray-300 transition-colors"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  {/* 指向箭头动画 */}
+                  <div className="flex items-center justify-center mt-2 text-purple-400 animate-bounce">
+                    <svg className="w-5 h-5 rotate-180" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M7 10l5 5 5-5z"/>
+                    </svg>
+                    <span className="text-xs ml-1">点击上方按钮</span>
+                    <svg className="w-5 h-5 rotate-180" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M7 10l5 5 5-5z"/>
+                    </svg>
+                  </div>
                 </div>
-                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-red-500" />
               </div>
-            </div>
+            )}
           </div>
         )}
 

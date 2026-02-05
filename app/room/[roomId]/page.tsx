@@ -255,11 +255,13 @@ export default function RoomPage({ params }: RoomPageProps) {
             players={players}
             currentPlayerId={playerId}
             activePlayerId={displayRoom.hostId}
+            isVideoOff={isVideoOff}
           />
         ) : (
           <GalleryView
             players={players}
             currentPlayerId={playerId}
+            isVideoOff={isVideoOff}
           />
         )
       )}

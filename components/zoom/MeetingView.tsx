@@ -1,12 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Player } from '@/lib/game/types';
 
 interface MeetingViewProps {
   players: Player[];
   currentPlayerId: string | null;
   activePlayerId?: string;
+  isVideoOff?: boolean;
 }
 
 // 计算最优的网格布局
@@ -47,7 +48,74 @@ function getAvatarColors(name: string): { bg: string; bgDark: string } {
   return colorPairs[Math.abs(hash) % colorPairs.length];
 }
 
-export function MeetingView({ players, currentPlayerId, activePlayerId }: MeetingViewProps) {
+// 本地摄像头视频组件
+function LocalVideo({ isVideoOff }: { isVideoOff?: boolean }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [hasCamera, setHasCamera] = useState(false);
+  const [cameraError, setCameraError] = useState(false);
+
+  useEffect(() => {
+    if (isVideoOff) {
+      // 停止摄像头
+      if (videoRef.current?.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
+      }
+      setHasCamera(false);
+      return;
+    }
+
+    // 请求摄像头权限
+    const startCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'user'
+          },
+          audio: false 
+        });
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          setHasCamera(true);
+          setCameraError(false);
+        }
+      } catch (err) {
+        console.log('Camera not available:', err);
+        setCameraError(true);
+        setHasCamera(false);
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      if (videoRef.current?.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [isVideoOff]);
+
+  if (isVideoOff || cameraError || !hasCamera) {
+    return null;
+  }
+
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      muted
+      className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
+    />
+  );
+}
+
+export function MeetingView({ players, currentPlayerId, activePlayerId, isVideoOff }: MeetingViewProps) {
   // 限制最多显示 25 人
   const displayPlayers = players.slice(0, 25);
   const { cols, rows } = getGridLayout(displayPlayers.length);
@@ -60,16 +128,25 @@ export function MeetingView({ players, currentPlayerId, activePlayerId }: Meetin
     );
   }
 
+  // 计算每个视频窗口的宽高比
+  const getAspectStyle = () => {
+    if (displayPlayers.length === 1) {
+      return { maxWidth: '900px', maxHeight: '600px' };
+    }
+    return {};
+  };
+
   return (
-    <div className="flex-1 bg-[#1A1A1A] p-3 overflow-hidden flex items-center justify-center">
+    <div className="flex-1 bg-[#1A1A1A] p-4 overflow-hidden flex items-center justify-center">
       <div 
-        className="w-full h-full grid gap-2"
+        className="w-full h-full grid gap-3"
         style={{
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
           gridTemplateRows: `repeat(${rows}, 1fr)`,
+          ...getAspectStyle(),
         }}
       >
-        {displayPlayers.map((player, index) => {
+        {displayPlayers.map((player) => {
           const isCurrentUser = player.id === currentPlayerId;
           const isSpeaking = player.id === activePlayerId;
           const colors = getAvatarColors(player.name);
@@ -79,43 +156,48 @@ export function MeetingView({ players, currentPlayerId, activePlayerId }: Meetin
               key={player.id} 
               className={`
                 relative rounded-xl overflow-hidden 
-                transition-all duration-200
+                transition-all duration-200 min-h-[120px]
                 ${isSpeaking ? 'ring-4 ring-green-500 ring-offset-2 ring-offset-[#1A1A1A]' : ''}
               `}
               style={{
-                background: `linear-gradient(180deg, ${colors.bg}30 0%, ${colors.bgDark}50 100%)`,
+                background: `linear-gradient(180deg, ${colors.bg}40 0%, ${colors.bgDark}60 100%)`,
+                aspectRatio: '16/9',
               }}
             >
-              {/* 视频内容区 - 头像居中 */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                {/* 圆形头像 */}
-                <div 
-                  className={`
-                    rounded-full flex items-center justify-center overflow-hidden
-                    border-4 border-white/20
-                    ${displayPlayers.length === 1 ? 'w-48 h-48' : 
-                      displayPlayers.length <= 4 ? 'w-32 h-32' : 
-                      displayPlayers.length <= 9 ? 'w-24 h-24' : 'w-20 h-20'}
-                  `}
-                  style={{
-                    background: `linear-gradient(135deg, ${colors.bg} 0%, ${colors.bgDark} 100%)`,
-                  }}
-                >
-                  <span 
-                    className="text-white font-bold"
-                    style={{ 
-                      fontSize: displayPlayers.length === 1 ? '5rem' : 
-                               displayPlayers.length <= 4 ? '3rem' : 
-                               displayPlayers.length <= 9 ? '2rem' : '1.5rem' 
+              {/* 当前用户显示摄像头视频 */}
+              {isCurrentUser && <LocalVideo isVideoOff={isVideoOff} />}
+              
+              {/* 头像（视频关闭或其他用户时显示） */}
+              {(!isCurrentUser || isVideoOff) && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div 
+                    className={`
+                      rounded-full flex items-center justify-center overflow-hidden
+                      border-4 border-white/20 shadow-xl
+                      ${displayPlayers.length === 1 ? 'w-40 h-40' : 
+                        displayPlayers.length <= 4 ? 'w-28 h-28' : 
+                        displayPlayers.length <= 9 ? 'w-20 h-20' : 'w-16 h-16'}
+                    `}
+                    style={{
+                      background: `linear-gradient(135deg, ${colors.bg} 0%, ${colors.bgDark} 100%)`,
                     }}
                   >
-                    {player.name.charAt(0).toUpperCase()}
-                  </span>
+                    <span 
+                      className="text-white font-bold"
+                      style={{ 
+                        fontSize: displayPlayers.length === 1 ? '4rem' : 
+                                 displayPlayers.length <= 4 ? '2.5rem' : 
+                                 displayPlayers.length <= 9 ? '1.5rem' : '1.25rem' 
+                      }}
+                    >
+                      {player.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
               
-              {/* 名字标签 - 底部居左 */}
-              <div className="absolute bottom-0 left-0 right-0 p-3">
+              {/* 名字标签 - 底部 */}
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
                 <div className="flex items-center gap-2">
                   {/* 麦克风图标 */}
                   <div className={`
@@ -158,6 +240,6 @@ export function MeetingView({ players, currentPlayerId, activePlayerId }: Meetin
 }
 
 // 网格视图（别名，与 MeetingView 相同）
-export function GalleryView({ players, currentPlayerId }: MeetingViewProps) {
-  return <MeetingView players={players} currentPlayerId={currentPlayerId} />;
+export function GalleryView({ players, currentPlayerId, isVideoOff }: MeetingViewProps) {
+  return <MeetingView players={players} currentPlayerId={currentPlayerId} isVideoOff={isVideoOff} />;
 }
