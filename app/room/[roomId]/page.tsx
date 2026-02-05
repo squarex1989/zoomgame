@@ -228,6 +228,7 @@ export default function RoomPage({ params }: RoomPageProps) {
         participantCount={players.length}
         isGameMode={isGameMode}
         isConnected={isConnected}
+        onGameModeToggle={handleSwitchMode}
       />
 
       {/* 主内容区 */}
@@ -269,6 +270,7 @@ export default function RoomPage({ params }: RoomPageProps) {
         isVideoOff={isVideoOff}
         isGameMode={isGameMode}
         isHost={isHost}
+        participantCount={players.length}
         onMuteToggle={() => setIsMuted(!isMuted)}
         onVideoToggle={() => setIsVideoOff(!isVideoOff)}
         onGameModeToggle={handleSwitchMode}
