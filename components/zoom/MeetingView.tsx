@@ -189,7 +189,7 @@ export function MeetingView({
   const playerIds = displayPlayers.map(p => p.id);
 
   // WebRTC Hook
-  const { localStream, remoteStreams, handleSignal } = useWebRTC({
+  const { localStream, remoteStreams, handleSignal, isInWebRTCList, webrtcPlayerIds } = useWebRTC({
     localPlayerId: currentPlayerId,
     playerIds,
     isVideoOff: isVideoOff || false,
@@ -236,7 +236,9 @@ export function MeetingView({
           const isSpeaking = player.id === activePlayerId;
           const colors = getAvatarColors(player.name);
           const remoteStream = remoteStreams.get(player.id);
-          const hasRemoteVideo = !isCurrentUser && remoteStream;
+          const isPlayerInWebRTCList = webrtcPlayerIds.includes(player.id);
+          const canShowRemoteVideo = !isCurrentUser && remoteStream && isPlayerInWebRTCList;
+          const hasRemoteVideo = canShowRemoteVideo;
           
           return (
             <div 
@@ -289,10 +291,16 @@ export function MeetingView({
               {/* 连接状态指示器（远程用户） */}
               {!isCurrentUser && (
                 <div className="absolute top-2 right-2 z-20">
-                  {hasRemoteVideo ? (
+                  {!isPlayerInWebRTCList ? (
+                    // 不在 WebRTC 名单中（超过4人限制）
+                    <div className="flex items-center gap-1 bg-black/50 rounded-full px-2 py-0.5">
+                      <div className="w-2 h-2 rounded-full bg-gray-400" />
+                      <span className="text-xs text-gray-400">仅头像</span>
+                    </div>
+                  ) : hasRemoteVideo ? (
                     <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" title="已连接" />
                   ) : (
-                    <div className="w-3 h-3 rounded-full bg-gray-500" title="等待连接" />
+                    <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" title="连接中..." />
                   )}
                 </div>
               )}
