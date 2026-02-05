@@ -51,58 +51,75 @@ function getAvatarColors(name: string): { bg: string; bgDark: string } {
 // 本地摄像头视频组件
 function LocalVideo({ isVideoOff }: { isVideoOff?: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [hasCamera, setHasCamera] = useState(false);
-  const [cameraError, setCameraError] = useState(false);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (isVideoOff) {
-      // 停止摄像头
-      if (videoRef.current?.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-        videoRef.current.srcObject = null;
-      }
-      setHasCamera(false);
-      return;
-    }
+    let mounted = true;
 
-    // 请求摄像头权限
     const startCamera = async () => {
+      // 如果视频关闭，停止摄像头
+      if (isVideoOff) {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+        }
+        setIsReady(false);
+        return;
+      }
+
       try {
+        // 请求摄像头权限
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
-            width: { ideal: 640 },
-            height: { ideal: 480 },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
             facingMode: 'user'
           },
           audio: false 
         });
         
+        if (!mounted) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+        
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          setHasCamera(true);
-          setCameraError(false);
+          // 等待视频可以播放
+          videoRef.current.onloadedmetadata = () => {
+            if (mounted && videoRef.current) {
+              videoRef.current.play().then(() => {
+                setIsReady(true);
+              }).catch(err => {
+                console.log('Video play failed:', err);
+              });
+            }
+          };
         }
       } catch (err) {
         console.log('Camera not available:', err);
-        setCameraError(true);
-        setHasCamera(false);
+        if (mounted) {
+          setIsReady(false);
+        }
       }
     };
 
     startCamera();
 
     return () => {
-      if (videoRef.current?.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
+      mounted = false;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
       }
     };
   }, [isVideoOff]);
-
-  if (isVideoOff || cameraError || !hasCamera) {
-    return null;
-  }
 
   return (
     <video
@@ -110,7 +127,11 @@ function LocalVideo({ isVideoOff }: { isVideoOff?: boolean }) {
       autoPlay
       playsInline
       muted
-      className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
+      className={`
+        absolute inset-0 w-full h-full object-cover scale-x-[-1] z-10
+        transition-opacity duration-300
+        ${isReady && !isVideoOff ? 'opacity-100' : 'opacity-0'}
+      `}
     />
   );
 }
